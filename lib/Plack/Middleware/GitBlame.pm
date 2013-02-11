@@ -5,6 +5,13 @@ use parent qw(Plack::Middleware);
 use Carp;
 
 our $line_that_died;
+our $git_directory;
+
+sub _get_git_author {
+    my ( $package, $line ) = @_;
+
+
+}
 
 ## Make all dies stack traces
 sub _die {
@@ -15,9 +22,10 @@ sub _die {
     if ( $line[0] eq 'Carp' ) {
         @line = caller(2);
     }
-    my $package = $line[0];
-    my $line    = $line[2];
-    my $file    = $line[1];
+    $line[1] = File::Spec->rel2abs($line[1]);
+    if ( $line[1] =~ /^$git_directory/ ) {
+        my $blame = _get_git_author($line[1], $line[2]);
+    }
 
     $line_that_died = \@line;
 
@@ -27,6 +35,8 @@ sub _die {
 sub call {
     my ( $self, $env ) = @_;
     
+    $git_directory = $self->{dir} or croak 'Must supply root git directory';
+
     ## just die for now, but we might want warn at some point
     local $SIG{__DIE__} = \&_die;
     
