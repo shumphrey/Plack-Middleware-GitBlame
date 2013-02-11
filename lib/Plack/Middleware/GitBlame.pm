@@ -1,41 +1,126 @@
+=head1 NAME
+
+Plack::Middleware::GitBlame
+
+=head1 SYNOPSIS
+
+  use Term::ANSIColor;
+
+  enable 'GitBlame', 
+    dir => '/path/to/gitrepo',
+    cb => sub {
+        my ( $caller, $blames ) = @_;
+        print $caller->[0];
+        print $blames->[0]->{comitter};
+        foreach my $blame (@$blames) {
+            print color('red') if $blame->{error};
+            print $blame->{committer};
+        }
+    };
+
+=head1 DESCRIPTION
+
+A middleware that captures errors and gets the git blame data for the
+surrounding lines.
+
+Takes a directory to the git repo and a callback for the data.
+See L<Plack::Middleware::GitBlame::Email> for a module that emails the person
+who wrote the line.
+
+You can also provide an integer number of 'lines' (defaults to the single line)
+to get that number of blame lines above and below
+(negative number gives entire file)
+
+The callback receives two arguments, the first is the caller array.
+The second is an array of hashrefs corresponding to information produced
+by git blame.
+The caller array is the standard array returned by caller(expr) and will
+contain the line number at index 2
+
+=head1 SEE ALSO
+
+L<Plack::Middleware::GitBlame::Email>,
+L<Git::Repository>
+
+=cut
+
+package Plack::Middleware::GitBlame;
 use strict;
 use warnings;
-package Plack::Middleware::GitBlame;
 use parent qw(Plack::Middleware);
 use Carp;
+use File::Spec;
+use Git::Repository;
 
-our $line_that_died;
-our $git_directory;
+my $git_directory;
+my $callback;
+my $num_lines;
 
-sub _get_git_author {
-    my ( $package, $line ) = @_;
+sub _get_git_data {
+    my ( $file, $line_num ) = @_;
 
+    my $repo = Git::Repository->new(work_tree => $git_directory);
+    my @args = ('-p');
+    if ( defined $num_lines && $num_lines >= 0 ) {
+        push @args, sprintf('-L%d,%d', $line_num - $num_lines, 
+                                       $line_num + $num_lines);
+    }
+    my @output = $repo->run(
+        'blame',
+        @args,
+        $file
+    );
 
+    my (%data, @lines);
+
+    for my $line (@output) {
+        if ( $line =~ /^\t/ ) {
+            $data{line} = $line;
+            push @lines, { %data };
+        }
+        elsif ( $line =~ /^([0-9a-f]+)\s(\d+)\s(\d+)\s*(\d*)$/x ) {
+            $data{commit}               = $1;
+            $data{original_line_number} = $2;
+            $data{final_line_number}    = $3;
+            $data{lines_count_in_group} = $4;
+            if ( $line_num == $3 ) {
+                $data{error} = 1;
+            }
+        }
+        elsif ( $line =~ m/^([\w\-]+)\s*(.*)$/x ) {
+            $data{$1} = $2;
+        }
+    }
+    return \@lines;
 }
 
 ## Make all dies stack traces
 sub _die {
-    my @line = caller(0);
+    my @args = @_;
+    my @caller = caller(0);
     ## If caller line is carp, then we actually want the line
     ## that called the sub containing croak/carp/confess
     ## since that error indicated the caller made a mistake, not the die-er
-    if ( $line[0] eq 'Carp' ) {
-        @line = caller(2);
+    if ( $caller[0] eq 'Carp' ) {
+        @caller = caller(2);
     }
-    $line[1] = File::Spec->rel2abs($line[1]);
-    if ( $line[1] =~ /^$git_directory/ ) {
-        my $blame = _get_git_author($line[1], $line[2]);
+    $caller[1] = File::Spec->rel2abs($caller[1]);
+
+    if ( $caller[1] =~ /^$git_directory/ ) {
+        my $blames = _get_git_data($caller[1], $caller[2]);
+        $callback->(\@caller, $blames)
     }
 
-    $line_that_died = \@line;
-
-    die @_;
+    die @args;
 }
 
 sub call {
     my ( $self, $env ) = @_;
     
     $git_directory = $self->{dir} or croak 'Must supply root git directory';
+    $callback      = $self->{cb} or croak 'Must supply callback';
+    $num_lines     = $self->{lines} || 0;
+    $git_directory = File::Spec->rel2abs($git_directory);
 
     ## just die for now, but we might want warn at some point
     local $SIG{__DIE__} = \&_die;

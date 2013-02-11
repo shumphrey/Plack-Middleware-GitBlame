@@ -47,18 +47,21 @@ sub croak_nested { named_app_croak() }
 
 ## name, coderef, description, line number, git user
 my @TESTS = (
-    ['Anon sub',     $app_die,        undef,            39, 'shumphrey'],
-    ['Named sub',    \&named_app_die, undef,            37, 'shumphrey'],
-    ['Nested sub',   $app_die_nested, 'Named sub',      37, 'shumphrey'],
-    ['Croak nested', \&croak_nested,  'Croak in named', 46, 'shumphrey'],
+    ['Anon sub',     $app_die,        undef,            39, 'Steven Humphrey'],
+    ['Named sub',    \&named_app_die, undef,            37, 'Steven Humphrey'],
+    ['Nested sub',   $app_die_nested, 'Named sub',      37, 'Steven Humphrey'],
+    ['Croak nested', \&croak_nested,  'Croak in named', 46, 'Steven Humphrey'],
 );
 
 foreach my $test (@TESTS) {
-    my ( $name, $app, $description, $expected ) = @$test;
+    my ( $name, $app, $description, $expected, $committer ) = @$test;
     $description ||= $name;
+    my ( $caller, $blames );
+
     test_psgi 
         app => builder {
-            enable 'GitBlame', dir => $dir;
+            enable 'GitBlame', dir   => $dir, 
+                               cb    => sub { ( $caller, $blames ) = @_; };
             $app
         },
         client => sub {
@@ -66,13 +69,32 @@ foreach my $test (@TESTS) {
             my $res = $cb->(HTTP::Request->new(GET => "/"));
             is($res->code, 500, $name);
             like($res->content, qr/^$description/, 'Correct error string');
-            my ($package, $file, $line) = @{$Plack::Middleware::GitBlame::line_that_died || []};
+            my ($package, $file, $line) = @{$caller || []};
             
             like($file, qr/$file$/, 'Error happened in this file');
             is($expected, $line, 'Error happens on right line')
-                or note(explain($Plack::Middleware::GitBlame::line_that_died));
+                or note(explain($caller));
+            
+            is(scalar(@$blames), 1);
+            is($blames->[0]->{final_line_number}, $expected, 'blame has line num');
+            ok($blames->[0]->{error}, 'blame has error flag');
+            is($blames->[0]->{committer}, $committer, 'Committed by author');
         };
 }
+
+my ( $caller, $blames ) = @_;
+test_psgi 
+    app => builder {
+        enable 'GitBlame',
+            dir   => $dir, 
+            lines => 3,
+            cb    => sub { ( $caller, $blames ) = @_; };
+        $app_die
+    },
+    client => sub {
+        my $res = shift->(HTTP::Request->new(GET => "/"));
+        is(scalar(@$blames), 7, 'there are 7 lines of blame');
+    };
 
 done_testing();
 
