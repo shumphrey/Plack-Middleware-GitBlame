@@ -37,6 +37,25 @@ by git blame.
 The caller array is the standard array returned by caller(expr) and will
 contain the line number at index 2
 
+=head1 PLUGINS
+
+This distribution comes with L<Plack::Middleware::GitBlame::Email>
+which is a plugin that sends emails.
+
+You can write you own plugin by calling the setup method.
+Create a new module that inherits from L<Plack::Middleware::GitBlame>
+and calls the setup method.
+
+  use parent qw(Plack::Middleware::GitBlame);
+
+  sub call {
+    return setup(@_, sub {
+        my ( $caller, $blames ) = @_;
+    });    
+  }
+
+See L<Plack::Middleware> for documentation on creating middlewares.
+
 =head1 SEE ALSO
 
 L<Plack::Middleware::GitBlame::Email>,
@@ -58,6 +77,10 @@ my $num_lines;
 
 sub _get_git_data {
     my ( $file, $line_num ) = @_;
+
+    if ( !-d $git_directory ) {
+        croak "$git_directory does not exist";
+    }
 
     my $repo = Git::Repository->new(work_tree => $git_directory);
     my @args = ('-p');
@@ -97,6 +120,7 @@ sub _get_git_data {
 ## Make all dies stack traces
 sub _die {
     my @args = @_;
+
     my @caller = caller(0);
     ## If caller line is carp, then we actually want the line
     ## that called the sub containing croak/carp/confess
@@ -114,18 +138,22 @@ sub _die {
     die @args;
 }
 
-sub call {
-    my ( $self, $env ) = @_;
-    
+sub setup {
+    my ( $self, $env, $cb ) = @_;
+
     $git_directory = $self->{dir} or croak 'Must supply root git directory';
-    $callback      = $self->{cb} or croak 'Must supply callback';
     $num_lines     = $self->{lines} || 0;
+    $callback      = $cb || $self->{cb} || croak 'Must supply callback';
     $git_directory = File::Spec->rel2abs($git_directory);
 
     ## just die for now, but we might want warn at some point
     local $SIG{__DIE__} = \&_die;
     
     return $self->app->($env);
+}
+
+sub call {
+    return setup(@_);
 }
 
 1;
