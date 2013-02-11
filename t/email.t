@@ -26,9 +26,14 @@ BEGIN {
 my $file = __FILE__;
 my $dir = File::Spec->catdir(dirname($file), '..');
 
+## Todo, make these tests create a git repo
+if ( !-d $dir ) {
+    plan skip_all => __PACKAGE__ . ' must be installed from a git repo for these tests to work';
+}
+
 test_psgi 
     app => builder {
-        enable 'GitBlame::Email', dir => $dir;
+        enable 'GitBlame::Email', dir => $dir, sender => 'noreply@fakeemail.com';
         sub { die "force die\n" };
     },
     client => sub {
@@ -36,7 +41,7 @@ test_psgi
         is($res->content, "force die\n");
         my @deliveries = Email::Sender::Simple->default_transport->deliveries;
         ok(@deliveries, 'Delivered email');
-        diag(explain(@deliveries));
+        ## Todo, add an email check here.
     };
 
 done_testing();

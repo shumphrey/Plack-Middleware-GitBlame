@@ -10,13 +10,16 @@ When an exception is thrown, send an email to the author of the line of code.
 
   enable 'Plack::Middleware::GitBlame::Email',
     dir       => '/path/to/git/repo',
+    sender    => 'noreply@email.com',
     transport => $transport;
 
 Wrapper around L<Plack::Middleware::GitBlame>,
 enables the Plack::Middleware::GitBlame module with an email callback.
 
-An optional L<Email::Sender::Transport> as can be supplied as 'transport'
+An optional L<Email::Sender::Transport> can be supplied as 'transport'
 to specify how the email will get sent.
+
+Must also supply sender email address
 
 =cut
 
@@ -29,6 +32,7 @@ use parent qw(Plack::Middleware::GitBlame);
 use Email::Simple;
 use Email::Sender::Simple qw/sendmail/;
 use List::Util qw/first/;
+use Carp;
 
 sub call {
     my ( $self, $env ) = @_;
@@ -36,7 +40,8 @@ sub call {
         my ( $caller, $blames ) = @_;
 
         my $blame = first { $_->{final_line_number} == $caller->[2] } @$blames;
-        my $to = $blame->{'committer-mail'};
+        my $to    = $blame->{'committer-mail'};
+        my $from  = $self->{sender} or croak 'Must supply sender';
 
         ## User has no email address
         ## Or the line hasn't been committed
@@ -62,6 +67,7 @@ EOF
         my $email = Email::Simple->create(
             header => [
                 To      => $to,
+                From    => $from,
                 Subject => 'Plack::Middleware::GitBlame - Error'
             ],
             body => $msg

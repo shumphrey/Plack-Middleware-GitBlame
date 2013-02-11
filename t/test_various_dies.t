@@ -9,10 +9,6 @@ test_various_dies.t
 Runs through a couple of dies, croaks, confesses etc.
 Make sure we can capture it all
 
-=head1 AUTHOR
-
-Steven Humphrey
-
 =cut
 
 use strict;
@@ -26,6 +22,8 @@ use File::Spec;
 
 my $file = __FILE__;
 my $dir = File::Spec->catdir(dirname($file), '..');
+
+## Todo, make these tests create a git repo
 if ( !-d $dir ) {
     plan skip_all => __PACKAGE__ . ' must be installed from a git repo for these tests to work';
 }
@@ -47,10 +45,10 @@ sub croak_nested { named_app_croak() }
 
 ## name, coderef, description, line number, git user
 my @TESTS = (
-    ['Anon sub',     $app_die,        undef,            39, 'Steven Humphrey'],
-    ['Named sub',    \&named_app_die, undef,            37, 'Steven Humphrey'],
-    ['Nested sub',   $app_die_nested, 'Named sub',      37, 'Steven Humphrey'],
-    ['Croak nested', \&croak_nested,  'Croak in named', 46, 'Steven Humphrey'],
+    ['Anon sub',     $app_die,        undef,            37, 'Steven Humphrey'],
+    ['Named sub',    \&named_app_die, undef,            35, 'Steven Humphrey'],
+    ['Nested sub',   $app_die_nested, 'Named sub',      35, 'Steven Humphrey'],
+    ['Croak nested', \&croak_nested,  'Croak in named', 44, 'Steven Humphrey'],
 );
 
 foreach my $test (@TESTS) {
