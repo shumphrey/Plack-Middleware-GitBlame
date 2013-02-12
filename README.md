@@ -1,6 +1,11 @@
 Plack::Middleware::GitBlame
 ===========================
 
+INSTALL
+-------
+
+    dzil install
+
 Plack::Middleware::GitBlame
 ---------------------------
 

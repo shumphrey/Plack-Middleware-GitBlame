@@ -58,14 +58,14 @@ sub croak_nested { named_app_croak() }
 
 ## name, coderef, description, line number, git user
 my @TESTS = (
-    ['Anon sub',     $app_die,        undef,            50, 'Steven Humphrey'],
-    ['Named sub',    \&named_app_die, undef,            48, 'Steven Humphrey'],
-    ['Nested sub',   $app_die_nested, 'Named sub',      48, 'Steven Humphrey'],
-    ['Croak nested', \&croak_nested,  'Croak in named', 57, 'Steven Humphrey'],
+    ['Anon sub',     $app_die,        undef,            50, $USER],
+    ['Named sub',    \&named_app_die, undef,            48, $USER],
+    ['Nested sub',   $app_die_nested, 'Named sub',      48, $USER],
+    ['Croak nested', \&croak_nested,  'Croak in named', 57, $USER],
 );
 
 foreach my $test (@TESTS) {
-    my ( $name, $app, $description, $expected, $committer ) = @$test;
+    my ( $name, $app, $description, $expected, $author ) = @$test;
     $description ||= $name;
     my ( $caller, $blames );
 
@@ -89,7 +89,7 @@ foreach my $test (@TESTS) {
             is(scalar(@$blames), 1);
             is($blames->[0]->{final_line_number}, $expected, 'blame has line num');
             ok($blames->[0]->{error}, 'blame has error flag');
-            is($blames->[0]->{committer}, $committer, 'Committed by author');
+            is($blames->[0]->{author}, $author, 'correct author');
         };
 }
 
