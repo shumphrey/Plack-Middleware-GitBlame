@@ -19,13 +19,18 @@ use Plack::Builder;
 use Carp;
 use File::Basename qw/dirname/;
 use File::Spec;
+use Git::Repository;
 
 my $file = __FILE__;
 my $dir = File::Spec->catdir(dirname($file), '..');
 
-## Todo, make these tests create a git repo
-if ( !-d $dir ) {
-    plan skip_all => __PACKAGE__ . ' must be installed from a git repo for these tests to work';
+##############################################################################
+## Init git repo
+## These tests depend on git, so we need to make sure they are in a git repo
+## Should be safe to re-init an existing repo?
+##############################################################################
+if ( !-d File::Spec->catdir($dir, '.git') ) {
+    Git::Repository->run( init => $dir );
 }
 
 use_ok('Plack::Middleware::GitBlame');
@@ -45,10 +50,10 @@ sub croak_nested { named_app_croak() }
 
 ## name, coderef, description, line number, git user
 my @TESTS = (
-    ['Anon sub',     $app_die,        undef,            37, 'Steven Humphrey'],
-    ['Named sub',    \&named_app_die, undef,            35, 'Steven Humphrey'],
-    ['Nested sub',   $app_die_nested, 'Named sub',      35, 'Steven Humphrey'],
-    ['Croak nested', \&croak_nested,  'Croak in named', 44, 'Steven Humphrey'],
+    ['Anon sub',     $app_die,        undef,            42, 'Steven Humphrey'],
+    ['Named sub',    \&named_app_die, undef,            40, 'Steven Humphrey'],
+    ['Nested sub',   $app_die_nested, 'Named sub',      40, 'Steven Humphrey'],
+    ['Croak nested', \&croak_nested,  'Croak in named', 49, 'Steven Humphrey'],
 );
 
 foreach my $test (@TESTS) {
