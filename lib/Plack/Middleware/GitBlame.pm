@@ -12,10 +12,10 @@ Plack::Middleware::GitBlame
     cb => sub {
         my ( $caller, $blames ) = @_;
         print $caller->[0];
-        print $blames->[0]->{comitter};
+        print $blames->[0]->{author};
         foreach my $blame (@$blames) {
             print color('red') if $blame->{error};
-            print $blame->{committer};
+            print $blame->{author};
         }
     };
 

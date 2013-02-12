@@ -24,6 +24,9 @@ use Git::Repository;
 my $file = __FILE__;
 my $dir = File::Spec->catdir(dirname($file), '..');
 
+my $USER  = 'testuser';
+my $EMAIL = 'testemail@email.fake';
+
 ##############################################################################
 ## Init git repo
 ## These tests depend on git, so we need to make sure they are in a git repo
@@ -31,6 +34,11 @@ my $dir = File::Spec->catdir(dirname($file), '..');
 ##############################################################################
 if ( !-d File::Spec->catdir($dir, '.git') ) {
     Git::Repository->run( init => $dir );
+    my $r = Git::Repository->new(work_tree => $dir);
+    $r->run('add', 't/test_various_dies.t');
+    $r->run('commit',
+             '-m', 'test commit',
+             '--author', "$USER <$EMAIL>");
 }
 
 use_ok('Plack::Middleware::GitBlame');
@@ -50,10 +58,10 @@ sub croak_nested { named_app_croak() }
 
 ## name, coderef, description, line number, git user
 my @TESTS = (
-    ['Anon sub',     $app_die,        undef,            42, 'Steven Humphrey'],
-    ['Named sub',    \&named_app_die, undef,            40, 'Steven Humphrey'],
-    ['Nested sub',   $app_die_nested, 'Named sub',      40, 'Steven Humphrey'],
-    ['Croak nested', \&croak_nested,  'Croak in named', 49, 'Steven Humphrey'],
+    ['Anon sub',     $app_die,        undef,            50, 'Steven Humphrey'],
+    ['Named sub',    \&named_app_die, undef,            48, 'Steven Humphrey'],
+    ['Nested sub',   $app_die_nested, 'Named sub',      48, 'Steven Humphrey'],
+    ['Croak nested', \&croak_nested,  'Croak in named', 57, 'Steven Humphrey'],
 );
 
 foreach my $test (@TESTS) {

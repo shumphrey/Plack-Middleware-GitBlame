@@ -40,7 +40,7 @@ sub call {
         my ( $caller, $blames ) = @_;
 
         my $blame = first { $_->{final_line_number} == $caller->[2] } @$blames;
-        my $to    = $blame->{'committer-mail'};
+        my $to    = $blame->{'author-mail'};
         my $from  = $self->{sender} or croak 'Must supply sender';
 
         ## User has no email address
@@ -59,7 +59,7 @@ EOF
             sprintf('%3d: %s', $_->{final_line_number}, $_->{line})
         } @$blames;
 
-        my $msg = sprintf($plain_template, $blame->{committer},
+        my $msg = sprintf($plain_template, $blame->{author},
                                            $blame->{final_line_number},
                                            $blame->{filename},
                                            join("\n", @lines));

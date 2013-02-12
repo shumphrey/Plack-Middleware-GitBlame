@@ -27,6 +27,9 @@ BEGIN {
 my $file = __FILE__;
 my $dir = File::Spec->catdir(dirname($file), '..');
 
+my $USER  = 'testuser';
+my $EMAIL = 'testemail@email.fake';
+
 ##############################################################################
 ## Init git repo
 ## These tests depend on git, so we need to make sure they are in a git repo
@@ -34,6 +37,11 @@ my $dir = File::Spec->catdir(dirname($file), '..');
 ##############################################################################
 if ( !-d File::Spec->catdir($dir, '.git') ) {
     Git::Repository->run( init => $dir );
+    my $r = Git::Repository->new(work_tree => $dir);
+    $r->run('add', 't/email.t');
+    $r->run('commit',
+             '-m', 'test commit',
+             '--author', "$USER <$EMAIL>");
 }
 
 test_psgi 
@@ -46,7 +54,7 @@ test_psgi
         is($res->content, "force die\n", 'Correct error');
         my @deliveries = Email::Sender::Simple->default_transport->deliveries;
         ok(@deliveries, 'Delivered email');
-        ## Todo, add an email check here.
+        is($deliveries[0]->{successes}->[0], $EMAIL, 'Email matches');
     };
 
 done_testing();
