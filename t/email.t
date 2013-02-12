@@ -38,7 +38,7 @@ test_psgi
     },
     client => sub {
         my $res = shift->(HTTP::Request->new(GET => "/"));
-        is($res->content, "force die\n");
+        is($res->content, "force die\n", 'Correct error');
         my @deliveries = Email::Sender::Simple->default_transport->deliveries;
         ok(@deliveries, 'Delivered email');
         ## Todo, add an email check here.

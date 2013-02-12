@@ -1,3 +1,4 @@
+# ABSTRACT: git blame on thrown errors
 =head1 NAME
 
 Plack::Middleware::GitBlame
