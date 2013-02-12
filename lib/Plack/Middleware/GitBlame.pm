@@ -75,6 +75,7 @@ use Git::Repository;
 my $git_directory;
 my $callback;
 my $num_lines;
+my %orig_sig_handler;
 
 sub _get_git_data {
     my ( $file, $line_num ) = @_;
@@ -120,8 +121,6 @@ sub _get_git_data {
 
 ## Make all dies stack traces
 sub _die {
-    my @args = @_;
-
     my @caller = caller(0);
     ## If caller line is carp, then we actually want the line
     ## that called the sub containing croak/carp/confess
@@ -136,7 +135,15 @@ sub _die {
         $callback->(\@caller, $blames)
     }
 
-    die @args;
+    ## We don't want to break the original sig handler
+    ## So we use that also.
+    ## i.e. we want Plack::Middleware::Stacktrace to still work
+    if ( ref($orig_sig_handler{__DIE__}) eq 'CODE' ) {
+        return $orig_sig_handler{__DIE__}->(@_);
+    }
+    else {
+        die @_;
+    }
 }
 
 sub setup {
@@ -148,6 +155,7 @@ sub setup {
     $git_directory = File::Spec->rel2abs($git_directory);
 
     ## just die for now, but we might want warn at some point
+    $orig_sig_handler{__DIE__} = $SIG{__DIE__};
     local $SIG{__DIE__} = \&_die;
     
     return $self->app->($env);
